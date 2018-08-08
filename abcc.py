@@ -235,13 +235,13 @@ class ABCC(object):
 
                 is_ok = self.limit_sell(util.safe_decimal(order_price), util.safe_decimal(order_amount))
                 if is_ok is None:
-                    log.info('no suitable order')
+                    log.info('no suitable order | may be not enough money')
                     return
                 if is_ok:
                     pending_order = self.get_pending_order()
                     self.limit_buy(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
                 else:
-                    log.warn('sell order has filled | may be not enough money')
+                    log.warn('sell order has filled')
 
         is_prepare = _pre()
         if is_prepare:
