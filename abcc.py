@@ -17,6 +17,7 @@ from time import sleep
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -40,7 +41,6 @@ driver = webdriver.Chrome()
 
 
 class ABCC(object):
-    driver = webdriver.Chrome()
 
     def login(self):
         # TODO:不用每次登录 or 直接从手机获取:) 滑动条
@@ -216,9 +216,16 @@ class ABCC(object):
                 limit_order_ele = WebDriverWait(driver, 2).until(
                     EC.presence_of_element_located((By.XPATH, '//div[@class="th5-tasb tab"]/div[1]')))
                 limit_order_ele.click()
-                if '限价' in limit_order_ele.find_element_by_tag_name('span').text:
-                    sleep(0.3)
-                    return True
+                flag1 = '限价' in limit_order_ele.find_element_by_tag_name('span').text
+
+                # 隐藏其他不相关交易对
+                hid_pair_ele = driver.find_element_by_xpath('/html/body/div[2]/div[6]/div[1]/div/div/label/span[1]/span')
+                hid_pair_ele.click()
+
+                hid_pair_ele = driver.find_element_by_xpath('/html/body/div[2]/div[6]/div[2]/div/div/label/span[1]/span')
+                hid_pair_ele.click()
+                sleep(0.3)
+                return flag1
             except:
                 return False
 
