@@ -119,10 +119,11 @@ class ABCC(object):
             order_ele = wait.until(EC.presence_of_all_elements_located((By.XPATH, order_table_xpath)))
             for e in order_ele:
                 td_ele = e.find_elements_by_tag_name('td')
-                td_ele[9].click()
-                wait.until(EC.visibility_of_element_located((
-                    By.XPATH, '/html[1]/body[1]/div[3]/div[1]/div[2]/button[2]'
-                ))).click()
+                if td_ele and len(td_ele) > 1:
+                    td_ele[9].click()
+                    wait.until(EC.visibility_of_element_located((
+                        By.XPATH, '/html[1]/body[1]/div[3]/div[1]/div[2]/button[2]'
+                    ))).click()
         except:
             log.error(util.error_msg())
         finally:
