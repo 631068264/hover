@@ -17,7 +17,6 @@ from time import sleep
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -62,8 +61,7 @@ class ABCC(object):
             return True
 
         except:
-            # TODO:log
-            print(util.error_msg())
+            log.error(util.error_msg())
             return False
 
     def get_ticker(self):
@@ -85,8 +83,8 @@ class ABCC(object):
                 const.SIDE.BID: bid_price,
             }
         except:
-            print(util.error_msg())
-            raise Exception()
+            log.error(util.error_msg())
+            raise Exception('Error ticker')
 
     def get_balance(self):
         import re
@@ -110,23 +108,23 @@ class ABCC(object):
                 const.SIDE.ASK: c[ask],
             }
         except:
-            print(util.error_msg())
-            raise Exception()
+            log.error(util.error_msg())
+            raise Exception('Error balance')
 
     def cancel_all_order(self):
         sleep(2)
         wait = WebDriverWait(driver, 10)
+        order_table_xpath = '//div[@class="bottom-current-delegation"]/table/div/tbody/tr'
         try:
-            # wait.until(EC.presence_of_element_located((By.XPATH, '/html/body/div[2]/div[6]/div[1]/table/thead/tr/th[10]/div/span/span'))).click()
-            wait.until(EC.presence_of_element_located((
-                By.XPATH, '//span[@class="btn el-popover__reference"]'
-            ))).click()
-            # wait.until(EC.visibility_of_element_located((By.XPATH, '//button[@class="btn ok"]'))).click()
-            wait.until(EC.visibility_of_element_located((
-                By.XPATH, '/html[1]/body[1]/div[3]/div[1]/div[2]/button[2]'
-            ))).click()
+            order_ele = wait.until(EC.presence_of_all_elements_located((By.XPATH, order_table_xpath)))
+            for e in order_ele:
+                td_ele = e.find_elements_by_tag_name('td')
+                td_ele[9].click()
+                wait.until(EC.visibility_of_element_located((
+                    By.XPATH, '/html[1]/body[1]/div[3]/div[1]/div[2]/button[2]'
+                ))).click()
         except:
-            print(util.error_msg())
+            log.error(util.error_msg())
         finally:
             return not self._check_order()
 
@@ -178,8 +176,7 @@ class ABCC(object):
             WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
                 (By.XPATH, ask_form_xpath + '/button[@class="btn sell fm"]')
             )).click()
-            # submit_ele = driver.find_element_by_xpath(ask_form_xpath + '/button[@class="btn sell fm"]')
-            # submit_ele.click()
+
             log.info('LIMIT_SELL [{price} , {amount} ]  depth[ {ask},{bid} ]'.format(
                 price=price, amount=amount, ask=self.ticker[const.SIDE.ASK], bid=self.ticker[const.SIDE.BID]
             ))
@@ -201,8 +198,6 @@ class ABCC(object):
                 (By.XPATH, bid_form_xpath + '/button[@class="btn buy fm"]')
             )).click()
 
-            # submit_ele = driver.find_element_by_xpath(bid_form_xpath + '/button[@class="btn buy fm"]')
-            # submit_ele.click()
             log.info('LIMIT_BUY [{price} , {amount} ]  depth[ {ask},{bid} ]'.format(
                 price=price, amount=amount, ask=self.ticker[const.SIDE.ASK], bid=self.ticker[const.SIDE.BID]
             ))
@@ -219,14 +214,17 @@ class ABCC(object):
                 flag1 = '限价' in limit_order_ele.find_element_by_tag_name('span').text
 
                 # 隐藏其他不相关交易对
-                hid_pair_ele = driver.find_element_by_xpath('/html/body/div[2]/div[6]/div[1]/div/div/label/span[1]/span')
+                hid_pair_ele = driver.find_element_by_xpath(
+                    '/html/body/div[2]/div[6]/div[1]/div/div/label/span[1]/span')
                 hid_pair_ele.click()
 
-                hid_pair_ele = driver.find_element_by_xpath('/html/body/div[2]/div[6]/div[2]/div/div/label/span[1]/span')
+                hid_pair_ele = driver.find_element_by_xpath(
+                    '/html/body/div[2]/div[6]/div[2]/div/div/label/span[1]/span')
                 hid_pair_ele.click()
                 sleep(0.3)
                 return flag1
             except:
+                log.error(util.error_msg())
                 return False
 
         def _strategy():
@@ -249,6 +247,12 @@ class ABCC(object):
                     self.limit_buy(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
                 else:
                     log.warn('sell order has filled')
+
+            else:
+                msg = 'BID ASk price too close sleep 30 sec'
+                log.info(msg)
+                print(msg)
+                sleep(30)
 
         is_prepare = _pre()
         if is_prepare:
