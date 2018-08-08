@@ -5,3 +5,4 @@ rm -rf .idea/
 rm -rf .git/
 
 rm -rf config_global/my.py
+rm -rf logs/*.log
