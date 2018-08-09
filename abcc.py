@@ -6,11 +6,6 @@
 @annotation = ''
 """
 
-# http = 'http://localhost:8087'
-# https = 'https://localhost:8087'
-# os.environ['HTTP_PROXY'] = http
-# os.environ['HTTPS_PROXY'] = https
-
 import decimal
 import random
 from time import sleep
@@ -21,6 +16,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from base import config, logger, util, const
+from google_auth import android_auth_code
 
 logger.AutoLog.log_path = 'logs'
 log = logger.AutoLog.file_log('abcc_{}'.format(config.ABCC.pair.lower()))
@@ -33,9 +29,8 @@ log = logger.AutoLog.file_log('abcc_{}'.format(config.ABCC.pair.lower()))
 #     }
 # }
 # options.add_experimental_option('prefs', prefs)
-
-
 # driver = webdriver.Chrome(chrome_options=options)
+
 driver = webdriver.Chrome()
 
 
@@ -44,19 +39,33 @@ class ABCC(object):
     def login(self):
         # TODO:不用每次登录 or 直接从手机获取:) 滑动条
         try:
-            login_wait = WebDriverWait(driver, 1)
+            wait = WebDriverWait(driver, 500)
             driver.get(config.ABCC.login_url)
 
-            account_ele = login_wait.until(EC.presence_of_element_located((By.NAME, 'auth_key')))
+            account_ele = wait.until(EC.presence_of_element_located((By.NAME, 'auth_key')))
             account_ele.clear()
             account_ele.send_keys(config.ABCC.account)
 
-            passwd_ele = login_wait.until(EC.presence_of_element_located((By.NAME, 'password')))
+            passwd_ele = wait.until(EC.presence_of_element_located((By.NAME, 'password')))
             passwd_ele.clear()
             passwd_ele.send_keys(config.ABCC.passwd)
 
             driver.find_element_by_id('submit').click()
+
             print('输入二次验证码')
+            if config.ABCC.auto_auth:
+                auth_input = wait.until(EC.presence_of_element_located((
+                    By.XPATH, '//div[@class="google-input"]/div/input'
+                )))
+                flag = True
+                while flag:
+                    code = android_auth_code(config.ABCC.device_name, config.ABCC.auth_key)
+                    auth_input.send_keys(code)
+                    try:
+                        WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.CLASS_NAME, 'warn')))
+                    except:
+                        flag = False
+
             element = WebDriverWait(driver, 500).until(EC.title_contains("个人中心"))
             return True
 
@@ -124,6 +133,7 @@ class ABCC(object):
                     wait.until(EC.visibility_of_element_located((
                         By.XPATH, '/html[1]/body[1]/div[3]/div[1]/div[2]/button[2]'
                     ))).click()
+                    sleep(0.3)
         except:
             log.error(util.error_msg())
         finally:

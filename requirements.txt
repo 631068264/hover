@@ -1,3 +1,4 @@
+Appium-Python-Client==0.28
 python-dateutil==2.7.3
 selenium==3.14.0
 six==1.11.0
