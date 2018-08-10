@@ -16,10 +16,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from base import config, logger, util, const
+from base.stash import Stash
 from google_auth import android_auth_code
 
 logger.AutoLog.log_path = 'logs'
-log = logger.AutoLog.file_log('abcc_{}'.format(config.ABCC.pair.lower()))
+strategy_id = 'abcc_{}'.format(config.ABCC.pair.lower())
+log = logger.AutoLog.file_log(strategy_id)
+
 
 # options = webdriver.ChromeOptions()
 # #1允许所有图片；2阻止所有图片；3阻止第三方服务器图片
@@ -30,6 +33,29 @@ log = logger.AutoLog.file_log('abcc_{}'.format(config.ABCC.pair.lower()))
 # }
 # options.add_experimental_option('prefs', prefs)
 # driver = webdriver.Chrome(chrome_options=options)
+class STRATEGY_FLAG(object):
+    FLAG_SB = 'FLAG_SB'
+    FLAG_BS = 'FLAG_BS'
+
+
+# TODO:注释
+class MODE(object):
+    FLAG_SB = 'FLAG_SB'
+    FLAG_BS = 'FLAG_BS'
+
+    FILL_S = 'FILL_S'
+    FILL_B = 'FILL_B'
+
+    NAME_DICT = {
+        FLAG_SB: STRATEGY_FLAG.FLAG_SB,
+        FLAG_BS: STRATEGY_FLAG.FLAG_BS,
+
+        FILL_S: STRATEGY_FLAG.FLAG_BS,
+        FILL_B: STRATEGY_FLAG.FLAG_SB,
+    }
+
+
+MODE_KEY = 'mode'
 
 driver = webdriver.Chrome()
 
@@ -60,11 +86,13 @@ class ABCC(object):
                 flag = True
                 while flag:
                     code = android_auth_code(config.ABCC.device_name, config.ABCC.auth_key)
-                    auth_input.send_keys(code)
-                    try:
-                        WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.CLASS_NAME, 'warn')))
-                    except:
-                        flag = False
+                    if code:
+                        auth_input.clear()
+                        auth_input.send_keys(code)
+                        try:
+                            WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.CLASS_NAME, 'warn')))
+                        except:
+                            flag = False
 
             element = WebDriverWait(driver, 500).until(EC.title_contains("个人中心"))
             return True
@@ -130,17 +158,17 @@ class ABCC(object):
                 td_ele = e.find_elements_by_tag_name('td')
                 if td_ele and len(td_ele) > 1:
                     td_ele[9].click()
-                    wait.until(EC.visibility_of_element_located((
+                    sleep(0.5)
+                    wait.until(EC.presence_of_element_located((
                         By.XPATH, '/html[1]/body[1]/div[3]/div[1]/div[2]/button[2]'
                     ))).click()
-                    sleep(0.3)
         except:
             log.error(util.error_msg())
         finally:
             return not self._check_order()
 
     def _check_order(self):
-        sleep(4)
+        sleep(3)
         wait = WebDriverWait(driver, 10)
         order_table_xpath = '//div[@class="bottom-current-delegation"]/table/div/tbody/tr/td'
         order_ele = wait.until(EC.presence_of_all_elements_located((By.XPATH, order_table_xpath)))
@@ -212,9 +240,16 @@ class ABCC(object):
             log.info('LIMIT_BUY [{price} , {amount} ]  depth[ {ask},{bid} ]'.format(
                 price=price, amount=amount, ask=self.ticker[const.SIDE.ASK], bid=self.ticker[const.SIDE.BID]
             ))
-            sleep(1)
+            return self._check_order()
+
+    def _judge_mode(self, stash):
+        mode = stash.get(MODE_KEY)
+        if mode is None:
+            return STRATEGY_FLAG.FLAG_SB
+        return MODE.NAME_DICT[mode]
 
     def trade(self):
+
         def _pre():
             try:
                 driver.get(config.ABCC.tar_url)
@@ -239,6 +274,21 @@ class ABCC(object):
                 return False
 
         def _strategy():
+            """
+            瞄准买一卖一缝隙刷单 目标是尽量成交自己的单,持续时间尽量久
+
+            先卖后买 先买后卖     两种操作 交替执行
+            sell_buy buy_sell
+
+
+            单被吃 反向操作进行两次
+            Example:
+                进行buy_sell 导致买单被吃  之后做两次sell_buy 再buy_sell sell_buy 循环
+
+            保存操作状态
+
+            :return:
+            """
             spread = self.ticker[const.SIDE.ASK] - self.ticker[const.SIDE.BID]
             if spread > config.ABCC.price_point:
                 # 有空隙
@@ -249,15 +299,42 @@ class ABCC(object):
                     random.uniform(float(config.ABCC.amount_point), float(self.balance[const.SIDE.ASK] / 2)),
                     util.get_round(config.ABCC.amount_point))
 
-                is_ok = self.limit_sell(util.safe_decimal(order_price), util.safe_decimal(order_amount))
-                if is_ok is None:
-                    log.info('no suitable order | may be not enough money')
-                    return
-                if is_ok:
-                    pending_order = self.get_pending_order()
-                    self.limit_buy(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
-                else:
-                    log.warn('sell order has filled')
+                with Stash(strategy_id) as stash:
+                    if self._judge_mode(stash) == STRATEGY_FLAG.FLAG_SB:
+                        is_ok = self.limit_sell(util.safe_decimal(order_price), util.safe_decimal(order_amount))
+                        if is_ok is None:
+                            log.info('no suitable sell order | may be not enough money')
+                            return
+
+                        if is_ok:
+                            pending_order = self.get_pending_order()
+                            self.limit_buy(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
+
+                            if stash.get(MODE_KEY) == MODE.FILL_B:
+                                stash[MODE_KEY] = MODE.FLAG_SB
+                            else:
+                                stash[MODE_KEY] = MODE.FLAG_BS
+                        else:
+                            log.warn('sell order has filled')
+                            stash[MODE_KEY] = MODE.FILL_S
+                    else:
+                        is_ok = self.limit_buy(util.safe_decimal(order_price), util.safe_decimal(order_amount))
+
+                        if is_ok is None:
+                            log.info('no suitable buy order | may be not enough money')
+                            return
+
+                        if is_ok:
+                            pending_order = self.get_pending_order()
+                            self.limit_sell(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
+
+                            if stash.get(MODE_KEY) == MODE.FILL_S:
+                                stash[MODE_KEY] = MODE.FLAG_BS
+                            else:
+                                stash[MODE_KEY] = MODE.FLAG_SB
+                        else:
+                            log.warn('buy order has filled')
+                            stash[MODE_KEY] = MODE.FILL_B
 
             else:
                 msg = 'BID ASk price too close sleep 30 sec'
@@ -272,7 +349,7 @@ class ABCC(object):
                 is_ok = self.cancel_all_order()
                 if is_ok:
                     log.info('CANCEL ALL ORDER')
-                    sleep(3)
+                    sleep(2)
                     try:
                         self.ticker = self.get_ticker()
                         self.balance = self.get_balance()
