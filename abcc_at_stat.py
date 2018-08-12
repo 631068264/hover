@@ -19,8 +19,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from base import config, logger, util
 from google_auth import android_auth_code
 
-NOW_DATE = str((util.nowdt() - datetime.timedelta(days=2)).date())
-
+NOW_DATE = str((util.nowdt() - datetime.timedelta(days=1)).date())
 
 mine_profit_url_json = 'https://abcc.com/history/minings.json?page=1&per_page=20'
 csv_url = 'https://abcc.com/history/trades.csv?per_page=1000&from={date} 00:00:00&to={date} 23:59:00'.format(
@@ -111,27 +110,32 @@ class AT_STAT(object):
         content = req.get(csv_url, **self.req_kw).content
         df = pd.read_csv(io.StringIO(content.decode('utf-8')))
         fee = 0
+        volume = 0
         try:
-            df['手续费'] = df['手续费'].astype('float64')
+            df[['手续费', '金额']] = df[['手续费', '金额']].astype('float64')
             fee = df['手续费'].sum()
+            volume = df['金额'].sum()
         except KeyError:
-            df['Fee'] = df['Fee'].astype('float64')
+            df[['Fee', 'Amount']] = df[['Fee', 'Amount']].astype('float64')
             fee = df['Fee'].sum()
+            volume = df['Amount'].sum()
 
-        return util.safe_decimal(fee)
+        return util.safe_decimal(fee), util.safe_decimal(volume), df.shape[0]
 
     def run(self):
         mine_amount = self._stat(conf.mine_account)
 
-        fee = self.get_fee()
+        fee, volume, trade_count = self.get_fee()
 
         invite_amount_1 = self._stat(conf.l1_account)
         invite_amount_2 = self._stat(conf.l2_account)
 
         total_amount = mine_amount + invite_amount_1 + invite_amount_2
 
-        log.info('{} 挖矿总量 {} 手续费 {} USDT 成本 {} CNY'.format(NOW_DATE, total_amount, fee,
-                                                           fee / total_amount * USDT_CNY if total_amount > 0 else 0))
+        log.info('{} 挖矿总量 {} 手续费 {} USDT 成本 {} CNY :  成交次数 {} 成交量 {}'.format(
+            NOW_DATE, total_amount, fee,
+            fee / total_amount * USDT_CNY if total_amount > 0 else 0,
+            trade_count, volume))
 
         driver.close()
         return total_amount
