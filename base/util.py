@@ -5,7 +5,10 @@
 @time = 2017/2/4 09:05
 @annotation = ''
 """
+import datetime
 import decimal
+
+from base import config
 
 
 def error_msg():
@@ -23,3 +26,7 @@ def safe_decimal(data):
     if not isinstance(data, str):
         data = str(data)
     return decimal.Decimal(data)
+
+
+def nowdt():
+    return datetime.datetime.now(config.tz_info).replace(microsecond=0)

@@ -28,6 +28,28 @@ class ABCC(object):
     device_name = ''
 
 
+class ABCC_STAT(object):
+    device_name = ABCC.device_name
+    usdt_cny = 6.9
+    # 推荐路径 l1_account=> l2_account=>mine_account l1 l2 位置无所谓
+    mine_account = {
+        'account': ABCC.account,
+        'passwd': ABCC.passwd,
+        'auth_key': ABCC.auth_key,
+    }
+
+    l1_account = {
+        'account': '',
+        'passwd': '',
+        'auth_key': '',
+    }
+    l2_account = {
+        'account': '',
+        'passwd': '',
+        'auth_key': '',
+    }
+
+
 from dateutil import tz
 
 tz_info = tz.gettz('Asia/Shanghai')

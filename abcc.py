@@ -38,7 +38,6 @@ class STRATEGY_FLAG(object):
     FLAG_BS = 'FLAG_BS'
 
 
-# TODO:注释
 class MODE(object):
     FLAG_SB = 'FLAG_SB'
     FLAG_BS = 'FLAG_BS'
@@ -63,7 +62,6 @@ driver = webdriver.Chrome()
 class ABCC(object):
 
     def login(self):
-        # TODO:不用每次登录 or 直接从手机获取:) 滑动条
         try:
             wait = WebDriverWait(driver, 500)
             driver.get(config.ABCC.login_url)

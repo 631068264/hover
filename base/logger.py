@@ -69,7 +69,7 @@ class AutoLog(object):
                                      '%a, %d %b %Y %H:%M:%S', )
         logger = logging.getLogger(log_name)
         log_path = os.path.join(cls.log_path, log_name + '.log')
-        handler = RotatingFileHandler(log_path, 'a', maxBytes=pow(1024, 3), backupCount=2)
+        handler = RotatingFileHandler(log_path, 'a', maxBytes=pow(1024, 3), backupCount=2, encoding='utf-8')
         # if log_path:
         #     pass
         # else:
