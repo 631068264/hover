@@ -22,7 +22,7 @@ from google_auth import android_auth_code
 NOW_DATE = str((util.nowdt() - datetime.timedelta(days=1)).date())
 day_limit = (util.nowdt() - util.str2dt(NOW_DATE, format='%Y-%m-%d')).days
 
-mine_profit_url_json = 'https://abcc.com/history/minings.json?page=1&per_page=20'
+mine_profit_url_json = 'https://abcc.com/history/minings.json?page=1&per_page=50'
 csv_url = 'https://abcc.com/history/trades.csv?per_page=1000&from={date} 00:00:00&to={date} 23:59:00'.format(
     date=NOW_DATE)
 kline_url = 'https://abcc.com/api/v2/k.json?market=atusdt&limit={}&period=1440'.format(day_limit)
