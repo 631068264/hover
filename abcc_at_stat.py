@@ -20,10 +20,12 @@ from base import config, logger, util
 from google_auth import android_auth_code
 
 NOW_DATE = str((util.nowdt() - datetime.timedelta(days=1)).date())
+day_limit = (util.nowdt() - util.str2dt(NOW_DATE, format='%Y-%m-%d')).days
 
 mine_profit_url_json = 'https://abcc.com/history/minings.json?page=1&per_page=20'
 csv_url = 'https://abcc.com/history/trades.csv?per_page=1000&from={date} 00:00:00&to={date} 23:59:00'.format(
     date=NOW_DATE)
+kline_url = 'https://abcc.com/api/v2/k.json?market=atusdt&limit={}&period=1440'.format(day_limit)
 
 driver = webdriver.Chrome()
 
@@ -90,7 +92,7 @@ class AT_STAT(object):
         self.req_kw = {'cookies': self._get_cookies(), 'headers': self._get_user_agent()}
         return self.req_kw
 
-    def _stat(self, account_info):
+    def _stat(self, account_info, is_exit=True):
         amount = 0
         is_ok = self._login(account_info)
         if is_ok:
@@ -102,8 +104,8 @@ class AT_STAT(object):
                 real_create_time = json.loads(d['extra_info'])['created_at']
                 if NOW_DATE in real_create_time:
                     amount += util.safe_decimal(d['amount'])
-
-        driver.delete_all_cookies()
+        if is_exit:
+            driver.delete_all_cookies()
         return amount
 
     def get_fee(self):
@@ -122,20 +124,32 @@ class AT_STAT(object):
 
         return util.safe_decimal(fee), util.safe_decimal(volume), df.shape[0]
 
-    def run(self):
-        mine_amount = self._stat(conf.mine_account)
+    def get_price(self):
+        """
+        收矿日收盘价
 
+        9-10 挖的矿 9-11收到 获取9-11收盘价
+        """
+        kline = req.get(kline_url, **self.req_kw).json()
+        return util.safe_decimal(kline[0][4])
+
+    def run(self):
+        mine_amount = self._stat(conf.mine_account, is_exit=False)
         fee, volume, trade_count = self.get_fee()
+        price = self.get_price()
+        driver.delete_all_cookies()
 
         invite_amount_1 = self._stat(conf.l1_account)
         invite_amount_2 = self._stat(conf.l2_account)
 
         total_amount = mine_amount + invite_amount_1 + invite_amount_2
-
-        log.info('{} 挖矿总量 {} 手续费 {} USDT 成本 {} CNY :  成交次数 {} 成交量 {}'.format(
-            NOW_DATE, total_amount, fee,
-            fee / total_amount * USDT_CNY if total_amount > 0 else 0,
-            trade_count, volume))
+        at_cost = fee / total_amount if total_amount > 0 else 0
+        change = 1 - at_cost / price
+        profit = (price - at_cost) * total_amount
+        log.info(NOW_DATE)
+        log.info('挖矿总量 {:.4f} 手续费 {:.4f} USDT 成本 {:.2f} CNY 盈利 {:.2%} {:.2f} CNY'.format(
+            total_amount, fee, at_cost * USDT_CNY, change, profit * USDT_CNY))
+        log.info('成交次数 {} 成交量 {:.2f}'.format(trade_count, volume))
 
         driver.close()
         return total_amount
