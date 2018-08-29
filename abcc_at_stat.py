@@ -39,13 +39,33 @@ USDT_CNY = util.safe_decimal(conf.usdt_cny)
 class AT_STAT(object):
     amount = 0
 
+    def _dialog_close(self):
+        wait = WebDriverWait(driver, 5)
+        try:
+            wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'dialog-content')))
+        except:
+            return
+        driver.find_element_by_css_selector('.iconfont.icon-guanbi').click()
+
+    def _set_zh(self):
+        # 中文
+        driver.get(conf.login_url)
+        driver.add_cookie({
+            'name': 'lang',
+            'value': 'zh-CN',
+        })
+
     def _login(self, account_info):
+        self._set_zh()
+
         account = account_info['account']
         passwd = account_info['passwd']
         auth_key = account_info['auth_key']
         try:
             wait = WebDriverWait(driver, 500)
             driver.get(conf.login_url)
+
+            self._dialog_close()
 
             account_ele = wait.until(EC.presence_of_element_located((By.NAME, 'auth_key')))
             account_ele.clear()

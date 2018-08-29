@@ -61,10 +61,28 @@ driver = webdriver.Chrome()
 
 class ABCC(object):
 
+    def __init__(self):
+        # 中文
+        driver.get(config.ABCC.login_url)
+        driver.add_cookie({
+            'name': 'lang',
+            'value': 'zh-CN',
+        })
+
+    def _dialog_close(self):
+        wait = WebDriverWait(driver, 5)
+        try:
+            wait.until(EC.presence_of_element_located((By.CLASS_NAME, 'dialog-content')))
+        except:
+            return
+        driver.find_element_by_css_selector('.iconfont.icon-guanbi').click()
+
     def login(self):
         try:
             wait = WebDriverWait(driver, 500)
             driver.get(config.ABCC.login_url)
+
+            self._dialog_close()
 
             account_ele = wait.until(EC.presence_of_element_located((By.NAME, 'auth_key')))
             account_ele.clear()
