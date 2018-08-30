@@ -19,8 +19,9 @@ from base import config, logger, util, const
 from base.stash import Stash
 from google_auth import android_auth_code
 
+conf = config.ABCC
 logger.AutoLog.log_path = 'logs'
-strategy_id = 'abcc_{}'.format(config.ABCC.pair.lower())
+strategy_id = 'abcc_{}'.format(conf.pair.lower())
 log = logger.AutoLog.file_log(strategy_id)
 
 
@@ -63,11 +64,15 @@ class ABCC(object):
 
     def __init__(self):
         # 中文
-        driver.get(config.ABCC.login_url)
+        driver.get(conf.login_url)
         driver.add_cookie({
             'name': 'lang',
             'value': 'zh-CN',
         })
+
+        self.min_trade = conf.min_trade
+        self.price_point = util.point2decfloat(conf.price_point)
+        self.amount_point = util.point2decfloat(conf.amount_point)
 
     def _dialog_close(self):
         wait = WebDriverWait(driver, 5)
@@ -80,28 +85,28 @@ class ABCC(object):
     def login(self):
         try:
             wait = WebDriverWait(driver, 500)
-            driver.get(config.ABCC.login_url)
+            driver.get(conf.login_url)
 
             self._dialog_close()
 
             account_ele = wait.until(EC.presence_of_element_located((By.NAME, 'auth_key')))
             account_ele.clear()
-            account_ele.send_keys(config.ABCC.account)
+            account_ele.send_keys(conf.account)
 
             passwd_ele = wait.until(EC.presence_of_element_located((By.NAME, 'password')))
             passwd_ele.clear()
-            passwd_ele.send_keys(config.ABCC.passwd)
+            passwd_ele.send_keys(conf.passwd)
 
             driver.find_element_by_id('submit').click()
 
             print('输入二次验证码')
-            if config.ABCC.auto_auth:
+            if conf.auto_auth:
                 auth_input = wait.until(EC.presence_of_element_located((
                     By.XPATH, '//div[@class="google-input"]/div/input'
                 )))
                 flag = True
                 while flag:
-                    code = android_auth_code(config.ABCC.device_name, config.ABCC.auth_key)
+                    code = android_auth_code(conf.device_name, conf.auth_key)
                     if code:
                         auth_input.clear()
                         auth_input.send_keys(code)
@@ -141,7 +146,7 @@ class ABCC(object):
 
     def get_balance(self):
         import re
-        pair = config.ABCC.pair
+        pair = conf.pair
         ask, bid = pair.upper().split('_')
 
         try:
@@ -218,7 +223,7 @@ class ABCC(object):
         return pending_orders
 
     def limit_sell(self, price, amount):
-        if amount < self.balance[const.SIDE.ASK] and price * amount > config.ABCC.min_trade:
+        if amount < self.balance[const.SIDE.ASK] and price * amount > self.min_trade:
             ask_form_xpath = '//div[@class="order-submit order-form"]/div[2]'
             price_ele = driver.find_element_by_xpath(
                 ask_form_xpath + '/div[@class="input-label input-item input-price"]/input')
@@ -239,7 +244,7 @@ class ABCC(object):
             return self._check_order()
 
     def limit_buy(self, price, amount):
-        if self.balance[const.SIDE.BID] > price * amount > config.ABCC.min_trade:
+        if self.balance[const.SIDE.BID] > price * amount > self.min_trade:
             bid_form_xpath = '//div[@class="order-submit order-form"]/div[1]'
             price_ele = driver.find_element_by_xpath(
                 bid_form_xpath + '/div[@class="input-label input-item input-price"]/input')
@@ -269,7 +274,7 @@ class ABCC(object):
 
         def _pre():
             try:
-                driver.get(config.ABCC.tar_url)
+                driver.get(conf.tar_url)
                 # 限价单
                 limit_order_ele = WebDriverWait(driver, 2).until(
                     EC.presence_of_element_located((By.XPATH, '//div[@class="th5-tasb tab"]/div[1]')))
@@ -307,14 +312,14 @@ class ABCC(object):
             :return:
             """
             spread = self.ticker[const.SIDE.ASK] - self.ticker[const.SIDE.BID]
-            if spread > config.ABCC.price_point:
+            if spread > self.price_point:
                 # 有空隙
                 order_price = round(float(self.ticker[const.SIDE.BID]) + random.uniform(0, float(spread)),
-                                    util.get_round(config.ABCC.price_point))
+                                    util.get_round(self.price_point))
 
                 order_amount = round(
-                    random.uniform(float(config.ABCC.amount_point), float(self.balance[const.SIDE.ASK] / 2)),
-                    util.get_round(config.ABCC.amount_point))
+                    random.uniform(float(self.amount_point), float(self.balance[const.SIDE.ASK] / 2)),
+                    util.get_round(self.amount_point))
 
                 with Stash(strategy_id) as stash:
                     if self._judge_mode(stash) == STRATEGY_FLAG.FLAG_SB:
@@ -356,10 +361,11 @@ class ABCC(object):
                             stash[MODE_KEY] = MODE.FILL_B
 
             else:
-                msg = 'BID ASk price too close sleep 30 sec'
+                wait_spread = 15
+                msg = 'BID ASk price too close sleep {} sec'.format(wait_spread)
                 log.info(msg)
                 print(msg)
-                sleep(30)
+                sleep(wait_spread)
 
         is_prepare = _pre()
         if is_prepare:

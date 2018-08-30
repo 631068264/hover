@@ -26,6 +26,17 @@ def get_round(spread):
     return decimal.Decimal(str(spread)).as_tuple().exponent * -1
 
 
+def point2decfloat(point):
+    """
+    保留位数转化成decimal
+
+    2 -> 0.01
+    """
+    if point >= 1:
+        return decimal.Decimal('0.' + '0' * (point - 1) + '1')
+    return safe_decimal(point)
+
+
 def safe_decimal(data):
     if not isinstance(data, str):
         data = str(data)
