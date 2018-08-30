@@ -50,6 +50,25 @@ class ABCC_STAT(object):
     }
 
 
+class ABCC_ADDRESS(object):
+    login_url = ABCC.login_url
+    device_name = ABCC.device_name
+    currency = 'eth'
+    account_list = [
+        {
+            'account': ABCC.account,
+            'passwd': ABCC.passwd,
+            'auth_key': ABCC.auth_key,
+        },
+        {
+            'account': '',
+            'passwd': '',
+            'auth_key': '',
+        },
+
+    ]
+
+
 from dateutil import tz
 
 tz_info = tz.gettz('Asia/Shanghai')
