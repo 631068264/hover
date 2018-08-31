@@ -27,6 +27,8 @@ csv_url = 'https://abcc.com/history/trades.csv?per_page=1000&from={date} 00:00:0
     date=NOW_DATE)
 kline_url = 'https://abcc.com/api/v2/k.json?market=atusdt&limit={}&period=1440'.format(day_limit)
 
+current_usdt_url = 'https://abcc.com/api/v2/k.json?market={}usdt&limit=1&period=1440'
+
 driver = webdriver.Chrome()
 
 logger.AutoLog.log_path = 'logs'
@@ -129,14 +131,30 @@ class AT_STAT(object):
         return amount
 
     def get_fee(self):
+
+        def _stat_msc(df, settlement_currency):
+            """stat_main_settlement_currency"""
+            df_ = df.loc[df['交易对'].str.endswith(settlement_currency)]
+            fee = df_['手续费'].sum()
+            volume = df_['金额'].sum()
+            return fee, volume
+
+        def _pair_price(pair):
+            price = req.get(current_usdt_url.format(pair), **self.req_kw).json()
+            return price[0][4]
+
         content = req.get(csv_url, **self.req_kw).content
         df = pd.read_csv(io.StringIO(content.decode('utf-8')))
         fee = 0
         volume = 0
         try:
             df[['手续费', '金额']] = df[['手续费', '金额']].astype('float64')
-            fee = df['手续费'].sum()
-            volume = df['金额'].sum()
+            usdt_fee, usdt_volume = _stat_msc(df, 'usdt')
+            btc_fee, btc_volume = _stat_msc(df, 'btc')
+
+            btc_usdt_price = _pair_price('btc')
+            fee = usdt_fee + btc_fee * btc_usdt_price
+            volume = usdt_volume + btc_volume * btc_usdt_price
         except KeyError:
             df[['Fee', 'Amount']] = df[['Fee', 'Amount']].astype('float64')
             fee = df['Fee'].sum()
