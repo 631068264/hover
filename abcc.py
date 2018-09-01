@@ -8,6 +8,7 @@
 
 import decimal
 import random
+import re
 from time import sleep
 
 from selenium import webdriver
@@ -56,7 +57,7 @@ class MODE(object):
 
 
 MODE_KEY = 'mode'
-
+BALANCE_KEY = 'balance'
 driver = webdriver.Chrome()
 
 
@@ -73,6 +74,7 @@ class ABCC(object):
         self.min_trade = conf.min_trade
         self.price_point = util.point2decfloat(conf.price_point)
         self.amount_point = util.point2decfloat(conf.amount_point)
+        self.balance_percent = conf.balance_percent
 
     def _dialog_close(self):
         wait = WebDriverWait(driver, 5)
@@ -129,12 +131,12 @@ class ABCC(object):
             ask_ele = wait.until(EC.presence_of_element_located((
                 By.XPATH, '//tbody[@class="scrollStyle ask-table"]/tr[last()]/td[1]')
             ))
-            ask_price = decimal.Decimal(ask_ele.text)
+            ask_price = util.safe_decimal(ask_ele.text)
 
             bid_ele = wait.until(EC.presence_of_element_located((
                 By.XPATH, '//tbody[@class="scrollStyle bid-table"]/tr[1]/td[1]')
             ))
-            bid_price = decimal.Decimal(bid_ele.text)
+            bid_price = util.safe_decimal(bid_ele.text)
 
             return {
                 const.SIDE.ASK: ask_price,
@@ -145,7 +147,6 @@ class ABCC(object):
             raise Exception('Error ticker')
 
     def get_balance(self):
-        import re
         pair = conf.pair
         ask, bid = pair.upper().split('_')
 
@@ -168,6 +169,10 @@ class ABCC(object):
         except:
             log.error(util.error_msg())
             raise Exception('Error balance')
+
+    def update_market(self):
+        self.ticker = self.get_ticker()
+        self.balance = self.get_balance()
 
     def cancel_all_order(self):
         sleep(2)
@@ -222,53 +227,136 @@ class ABCC(object):
             })
         return pending_orders
 
-    def limit_sell(self, price, amount):
-        if amount < self.balance[const.SIDE.ASK] and price * amount > self.min_trade:
-            ask_form_xpath = '//div[@class="order-submit order-form"]/div[2]'
-            price_ele = driver.find_element_by_xpath(
-                ask_form_xpath + '/div[@class="input-label input-item input-price"]/input')
-            price_ele.clear()
-            price_ele.send_keys(str(price))
+    def limit_sell(self, price, amount=None, volume=None):
+        ask_form_xpath = '//div[@class="order-submit order-form"]/div[2]'
+        price_ele = driver.find_element_by_xpath(
+            ask_form_xpath + '/div[@class="input-label input-item input-price"]/input')
+        price_ele.clear()
+        price_ele.send_keys(str(price))
+
+        if amount and amount < self.balance[const.SIDE.ASK] and price * amount > self.min_trade:
             amount_ele = driver.find_element_by_xpath(
                 ask_form_xpath + '/div[@class="input-label input-item input-amout"]/input')
             amount_ele.clear()
             amount_ele.send_keys(str(amount))
-            sleep(0.3)
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
-                (By.XPATH, ask_form_xpath + '/button[@class="btn sell fm"]')
-            )).click()
+        elif volume and volume / price < self.balance[const.SIDE.ASK] and volume > self.min_trade:
+            volume_ele = driver.find_element_by_xpath(
+                ask_form_xpath + '/div[@class="input-label input-item input-total"]/input')
+            volume_ele.clear()
+            volume_ele.send_keys(str(volume))
+        else:
+            return
 
-            log.info('LIMIT_SELL [{price} , {amount} ]  depth[ {ask},{bid} ]'.format(
-                price=price, amount=amount, ask=self.ticker[const.SIDE.ASK], bid=self.ticker[const.SIDE.BID]
-            ))
-            return self._check_order()
+        sleep(0.3)
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
+            (By.XPATH, ask_form_xpath + '/button[@class="btn sell fm"]')
+        )).click()
 
-    def limit_buy(self, price, amount):
-        if self.balance[const.SIDE.BID] > price * amount > self.min_trade:
-            bid_form_xpath = '//div[@class="order-submit order-form"]/div[1]'
-            price_ele = driver.find_element_by_xpath(
-                bid_form_xpath + '/div[@class="input-label input-item input-price"]/input')
-            price_ele.clear()
-            price_ele.send_keys(str(price))
+        log.info('LIMIT_SELL [ {price} , {amount} ]  depth[ {bid}< {price} <{ask} ]'.format(
+            price=price, amount=amount if amount else volume / price, ask=self.ticker[const.SIDE.ASK],
+            bid=self.ticker[const.SIDE.BID]
+        ))
+        return self._check_order()
+
+    def limit_buy(self, price, amount=None, volume=None):
+        bid_form_xpath = '//div[@class="order-submit order-form"]/div[1]'
+        price_ele = driver.find_element_by_xpath(
+            bid_form_xpath + '/div[@class="input-label input-item input-price"]/input')
+        price_ele.clear()
+        price_ele.send_keys(str(price))
+
+        if amount and self.balance[const.SIDE.BID] > price * amount > self.min_trade:
             amount_ele = driver.find_element_by_xpath(
                 bid_form_xpath + '/div[@class="input-label input-item input-amout"]/input')
             amount_ele.clear()
             amount_ele.send_keys(str(amount))
-            sleep(0.3)
-            WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
-                (By.XPATH, bid_form_xpath + '/button[@class="btn buy fm"]')
-            )).click()
+        elif volume and self.balance[const.SIDE.BID] > volume > self.min_trade:
+            volume_ele = driver.find_element_by_xpath(
+                bid_form_xpath + '/div[@class="input-label input-item input-total"]/input')
+            volume_ele.clear()
+            volume_ele.send_keys(str(volume))
+        else:
+            return
 
-            log.info('LIMIT_BUY [{price} , {amount} ]  depth[ {ask},{bid} ]'.format(
-                price=price, amount=amount, ask=self.ticker[const.SIDE.ASK], bid=self.ticker[const.SIDE.BID]
-            ))
-            return self._check_order()
+        sleep(0.3)
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
+            (By.XPATH, bid_form_xpath + '/button[@class="btn buy fm"]')
+        )).click()
+
+        log.info('LIMIT_BUY [ {price} , {amount} ]  depth[ {bid}< {price} <{ask}]'.format(
+            price=price, amount=amount if amount else volume / price, ask=self.ticker[const.SIDE.ASK],
+            bid=self.ticker[const.SIDE.BID]
+        ))
+        return self._check_order()
 
     def _judge_mode(self, stash):
         mode = stash.get(MODE_KEY)
         if mode is None:
             return STRATEGY_FLAG.FLAG_SB
         return MODE.NAME_DICT[mode]
+
+    def _dry_try_volume(self, side):
+        # TODO:fix limit_buy or limit_sell xpath
+        pattern = r'.*(\d+\.\d*).*'
+        ask_form_xpath = '//div[@class="order-submit order-form"]/div[2]'
+        price_ele = driver.find_element_by_xpath(
+            ask_form_xpath + '/div[@class="input-label input-item input-price"]/input')
+        price_ele.clear()
+        price_ele.send_keys(str(self.ticker[const.SIDE.BID]))
+        amount_ele = driver.find_element_by_xpath(
+            ask_form_xpath + '/div[@class="input-label input-item input-amout"]/input')
+        ask_amount = util.safe_decimal(re.search(pattern, amount_ele.get_attribute('placeholder')).groups()[0])
+        ask_volume = self.ticker[const.SIDE.BID] * ask_amount
+        bid_volume = self.balance[const.SIDE.BID]
+        volume = (ask_volume + bid_volume) / 2
+        if side == const.SIDE.ASK:
+            return bid_volume - volume
+        return ask_volume - volume
+
+    def _balance_asset(self, price, stash):
+        """平衡资产"""
+
+        def _flag_min_trade(side):
+            if side == const.SIDE.BID:
+                return self._get_amount_balance(side) <= self.min_trade
+            else:
+                return price * self._get_amount_balance(side) <= self.min_trade
+
+        side = stash.get(BALANCE_KEY, None)
+        if side:
+            self.balance = self.get_balance()
+            if _flag_min_trade(side):
+                log.warn('not enough money to {}'.format(side).lower())
+                self.ticker = self.get_ticker()
+                if (self.ticker[const.SIDE.ASK] / self.ticker[const.SIDE.BID]) - 1 * 100 < self.balance_percent:
+                    balance_volume = self._dry_try_volume(side)
+                    is_pending = True
+                    if side == const.SIDE.ASK:
+                        # 卖不够钱 买入
+                        is_pending = self.limit_buy(self.ticker[side], volume=balance_volume)
+                    elif side == const.SIDE.BID:
+                        # 买不够钱 卖出
+                        is_pending = self.limit_sell(self.ticker[side], volume=balance_volume)
+
+                    if is_pending:
+                        # 未完全平衡
+                        self.cancel_all_order()
+                        self._balance_asset(price, stash)
+
+                    log.info('BALANCED_ASSET SUCCESS {}'.format(side))
+                    del stash[BALANCE_KEY]
+                    self.update_market()
+                    return
+                log.warn('BALANCED_ASSET FAILED Depth spread too large {:.4%} > {:.4%}'.format(
+                    self.ticker[const.SIDE.ASK] / self.ticker[const.SIDE.BID] - 1, self.balance_percent / 100))
+                return
+
+            del stash[BALANCE_KEY]
+            self.update_market()
+
+    def _get_amount_balance(self, side):
+        """刷量头寸控制"""
+        return self.balance[side] / 2
 
     def trade(self):
 
@@ -312,21 +400,24 @@ class ABCC(object):
             :return:
             """
             spread = self.ticker[const.SIDE.ASK] - self.ticker[const.SIDE.BID]
-            if spread > self.price_point:
-                # 有空隙
-                order_price = round(float(self.ticker[const.SIDE.BID]) + random.uniform(0, float(spread)),
-                                    util.get_round(self.price_point))
+            order_price = util.safe_decimal(round(
+                float(self.ticker[const.SIDE.BID]) +
+                random.uniform(float(self.price_point), float(spread - self.price_point)), util.get_round(self.price_point)))
 
-                order_amount = round(
-                    random.uniform(float(self.amount_point), float(self.balance[const.SIDE.ASK] / 2)),
-                    util.get_round(self.amount_point))
+            order_amount = util.safe_decimal(round(
+                random.uniform(float(self.amount_point), float(self._get_amount_balance(const.SIDE.ASK))),
+                util.get_round(self.amount_point)))
 
-                with Stash(strategy_id) as stash:
+            with Stash(strategy_id) as stash:
+                self._balance_asset(order_price, stash)
+                if spread > self.price_point:
+                    # 有空隙
                     if self._judge_mode(stash) == STRATEGY_FLAG.FLAG_SB:
-                        is_ok = self.limit_sell(util.safe_decimal(order_price), util.safe_decimal(order_amount))
+                        is_ok = self.limit_sell(order_price, order_amount)
                         if is_ok is None:
                             stash[MODE_KEY] = MODE.FLAG_BS
-                            log.info('no suitable sell order | may be not enough money')
+                            stash[BALANCE_KEY] = const.SIDE.ASK
+                            log.info('no suitable sell order')
                             return
 
                         if is_ok:
@@ -341,13 +432,12 @@ class ABCC(object):
                             log.warn('sell order has filled')
                             stash[MODE_KEY] = MODE.FILL_S
                     else:
-                        is_ok = self.limit_buy(util.safe_decimal(order_price), util.safe_decimal(order_amount))
-
+                        is_ok = self.limit_buy(order_price, order_amount)
                         if is_ok is None:
                             stash[MODE_KEY] = MODE.FLAG_SB
-                            log.info('no suitable buy order | may be not enough money')
+                            stash[BALANCE_KEY] = const.SIDE.BID
+                            log.info('no suitable buy order')
                             return
-
                         if is_ok:
                             pending_order = self.get_pending_order()
                             self.limit_sell(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
@@ -359,13 +449,12 @@ class ABCC(object):
                         else:
                             log.warn('buy order has filled')
                             stash[MODE_KEY] = MODE.FILL_B
-
-            else:
-                wait_spread = 15
-                msg = 'BID ASk price too close sleep {} sec'.format(wait_spread)
-                log.info(msg)
-                print(msg)
-                sleep(wait_spread)
+                else:
+                    wait_spread = random.uniform(1, 10)
+                    msg = 'BID ASk price too close sleep {} sec'.format(wait_spread)
+                    log.info(msg)
+                    print(msg)
+                    sleep(wait_spread)
 
         is_prepare = _pre()
         if is_prepare:
@@ -376,8 +465,7 @@ class ABCC(object):
                     log.info('CANCEL ALL ORDER')
                     sleep(2)
                     try:
-                        self.ticker = self.get_ticker()
-                        self.balance = self.get_balance()
+                        self.update_market()
                         _strategy()
                     except:
                         log.error(util.error_msg())

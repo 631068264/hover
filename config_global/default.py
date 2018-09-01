@@ -21,6 +21,8 @@ class ABCC(object):
     # 最小小数位
     price_point = 0.01
     amount_point = 0.000001
+    # 平衡买卖资产 卖一买一的幅度 0.1%
+    balance_percent = 0.10
 
     # Google Auth android
     auto_auth = False
