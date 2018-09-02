@@ -26,6 +26,10 @@ def get_round(spread):
     return decimal.Decimal(str(spread)).as_tuple().exponent * -1
 
 
+def get_point(num):
+    return decimal.Decimal(str(num)).as_tuple().exponent * -1
+
+
 def point2decfloat(point):
     """
     保留位数转化成decimal
@@ -65,3 +69,11 @@ def ts2dt(timestamp):
 def str2dt(dtstr, format='%Y-%m-%d %H:%M:%S', tzinfo=config.tz_info):
     dt = datetime.datetime.strptime(dtstr, format)
     return dt.replace(tzinfo=tzinfo)
+
+
+def deal_min_trade(min_trade):
+    if min_trade >= 1 and isinstance(min_trade, int):
+        return min_trade + 1
+    else:
+        point = get_point(min_trade)
+        return min_trade + float(point2decfloat(point))

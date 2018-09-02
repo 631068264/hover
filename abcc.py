@@ -320,7 +320,7 @@ class ABCC(object):
             if side == const.SIDE.BID:
                 return self._get_amount_balance(side) <= self.min_trade
             else:
-                return price * self._get_amount_balance(side) <= self.min_trade
+                return price * self._get_amount_balance(side) <= util.deal_min_trade(self.min_trade)
 
         side = stash.get(BALANCE_KEY, None)
         if side:
@@ -402,7 +402,8 @@ class ABCC(object):
             spread = self.ticker[const.SIDE.ASK] - self.ticker[const.SIDE.BID]
             order_price = util.safe_decimal(round(
                 float(self.ticker[const.SIDE.BID]) +
-                random.uniform(float(self.price_point), float(spread - self.price_point)), util.get_round(self.price_point)))
+                random.uniform(float(self.price_point), float(spread - self.price_point)),
+                util.get_round(self.price_point)))
 
             order_amount = util.safe_decimal(round(
                 random.uniform(float(self.amount_point), float(self._get_amount_balance(const.SIDE.ASK))),
