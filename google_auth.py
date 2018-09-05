@@ -23,6 +23,7 @@ url = 'http://{host}:{port}/wd/hub'.format(host=host, port=port)
 android_google_auth = {"deviceName": "", "appPackage": "com.google.android.apps.authenticator2",
                        "appActivity": "com.google.android.apps.authenticator.AuthenticatorActivity",
                        "platformName": "Android",
+                       'automationName': 'uiautomator2',
                        "noReset": True}
 
 

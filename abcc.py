@@ -228,6 +228,12 @@ class ABCC(object):
         return pending_orders
 
     def limit_sell(self, price, amount=None, volume=None):
+        # self.update_market()
+        if price < self.ticker[const.SIDE.BID] or price > self.ticker[const.SIDE.ASK]:
+            log.error('FAIL LIMIT SELL depth[ {bid}< {price} <{ask} ] '
+                      'price too low to sell'.format(price=price, ask=self.ticker[const.SIDE.ASK],
+                                                     bid=self.ticker[const.SIDE.BID]))
+            return
         ask_form_xpath = '//div[@class="order-submit order-form"]/div[2]'
         price_ele = driver.find_element_by_xpath(
             ask_form_xpath + '/div[@class="input-label input-item input-price"]/input')
@@ -247,7 +253,6 @@ class ABCC(object):
         else:
             return
 
-        sleep(0.3)
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
             (By.XPATH, ask_form_xpath + '/button[@class="btn sell fm"]')
         )).click()
@@ -259,6 +264,12 @@ class ABCC(object):
         return self._check_order()
 
     def limit_buy(self, price, amount=None, volume=None):
+        # self.update_market()
+        if price < self.ticker[const.SIDE.BID] or price > self.ticker[const.SIDE.ASK]:
+            log.error('FAIL LIMIT BUY depth[ {bid}< {price} <{ask} ] '
+                      'price too high to buy'.format(price=price, ask=self.ticker[const.SIDE.ASK],
+                                                     bid=self.ticker[const.SIDE.BID]))
+            return
         bid_form_xpath = '//div[@class="order-submit order-form"]/div[1]'
         price_ele = driver.find_element_by_xpath(
             bid_form_xpath + '/div[@class="input-label input-item input-price"]/input')
@@ -277,8 +288,6 @@ class ABCC(object):
             volume_ele.send_keys(str(volume))
         else:
             return
-
-        sleep(0.3)
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
             (By.XPATH, bid_form_xpath + '/button[@class="btn buy fm"]')
         )).click()
@@ -423,7 +432,7 @@ class ABCC(object):
 
                         if is_ok:
                             pending_order = self.get_pending_order()
-                            self.limit_buy(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
+                            self.limit_buy(order_price, pending_order[0]['unsettled_amount'])
 
                             if stash.get(MODE_KEY) == MODE.FILL_B:
                                 stash[MODE_KEY] = MODE.FLAG_SB
@@ -441,7 +450,7 @@ class ABCC(object):
                             return
                         if is_ok:
                             pending_order = self.get_pending_order()
-                            self.limit_sell(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
+                            self.limit_sell(order_price, pending_order[0]['unsettled_amount'])
 
                             if stash.get(MODE_KEY) == MODE.FILL_S:
                                 stash[MODE_KEY] = MODE.FLAG_BS
@@ -457,6 +466,7 @@ class ABCC(object):
                     print(msg)
                     sleep(wait_spread)
 
+        # 页面准备
         is_prepare = _pre()
         if is_prepare:
             while True:
