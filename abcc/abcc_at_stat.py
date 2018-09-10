@@ -17,7 +17,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 
 from base import config, logger, util
-from google_auth import android_auth_code
+from base.google_auth import android_auth_code
 
 NOW_DATE = str((util.nowdt() - datetime.timedelta(days=1)).date())
 day_limit = (util.nowdt() - util.str2dt(NOW_DATE, format='%Y-%m-%d')).days

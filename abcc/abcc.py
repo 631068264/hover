@@ -18,7 +18,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from base import config, logger, util, const
 from base.stash import Stash
-from google_auth import android_auth_code
+from base.google_auth import android_auth_code
 
 conf = config.ABCC
 logger.AutoLog.log_path = 'logs'
@@ -174,6 +174,15 @@ class ABCC(object):
         self.ticker = self.get_ticker()
         self.balance = self.get_balance()
 
+    def cancel_order_tap(self):
+        """"""
+        wait = WebDriverWait(driver, 2)
+        try:
+            cancel = wait.until(EC.presence_of_element_located((By.XPATH, '//div[@class="footer"]/button[1]')))
+            cancel.click()
+        except:
+            pass
+
     def cancel_all_order(self):
         sleep(2)
         wait = WebDriverWait(driver, 10)
@@ -229,7 +238,7 @@ class ABCC(object):
 
     def limit_sell(self, price, amount=None, volume=None):
         # self.update_market()
-        if price < self.ticker[const.SIDE.BID] or price > self.ticker[const.SIDE.ASK]:
+        if price < self.ticker[const.SIDE.BID]:
             log.error('FAIL LIMIT SELL depth[ {bid}< {price} <{ask} ] '
                       'price too low to sell'.format(price=price, ask=self.ticker[const.SIDE.ASK],
                                                      bid=self.ticker[const.SIDE.BID]))
@@ -252,7 +261,7 @@ class ABCC(object):
             volume_ele.send_keys(str(volume))
         else:
             return
-
+        sleep(0.3)
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
             (By.XPATH, ask_form_xpath + '/button[@class="btn sell fm"]')
         )).click()
@@ -265,7 +274,7 @@ class ABCC(object):
 
     def limit_buy(self, price, amount=None, volume=None):
         # self.update_market()
-        if price < self.ticker[const.SIDE.BID] or price > self.ticker[const.SIDE.ASK]:
+        if price > self.ticker[const.SIDE.ASK]:
             log.error('FAIL LIMIT BUY depth[ {bid}< {price} <{ask} ] '
                       'price too high to buy'.format(price=price, ask=self.ticker[const.SIDE.ASK],
                                                      bid=self.ticker[const.SIDE.BID]))
@@ -288,6 +297,7 @@ class ABCC(object):
             volume_ele.send_keys(str(volume))
         else:
             return
+        sleep(0.3)
         WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
             (By.XPATH, bid_form_xpath + '/button[@class="btn buy fm"]')
         )).click()
@@ -432,7 +442,7 @@ class ABCC(object):
 
                         if is_ok:
                             pending_order = self.get_pending_order()
-                            self.limit_buy(order_price, pending_order[0]['unsettled_amount'])
+                            self.limit_buy(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
 
                             if stash.get(MODE_KEY) == MODE.FILL_B:
                                 stash[MODE_KEY] = MODE.FLAG_SB
@@ -450,7 +460,7 @@ class ABCC(object):
                             return
                         if is_ok:
                             pending_order = self.get_pending_order()
-                            self.limit_sell(order_price, pending_order[0]['unsettled_amount'])
+                            self.limit_sell(pending_order[0]['price'], pending_order[0]['unsettled_amount'])
 
                             if stash.get(MODE_KEY) == MODE.FILL_S:
                                 stash[MODE_KEY] = MODE.FLAG_BS
@@ -471,6 +481,7 @@ class ABCC(object):
         if is_prepare:
             while True:
                 # TODO: 块价值 or balance check
+                self.cancel_order_tap()
                 is_ok = self.cancel_all_order()
                 if is_ok:
                     log.info('CANCEL ALL ORDER')

@@ -14,7 +14,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 
 from base import config, logger, util
 from base.stash import Stash
-from google_auth import android_auth_code
+from base.google_auth import android_auth_code
 
 conf = config.ABCC_ADDRESS
 driver = webdriver.Chrome()

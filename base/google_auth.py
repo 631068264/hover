@@ -68,6 +68,7 @@ def android_auth_code(device_name, tar_name, is_only=False, is_strict=True):
 
             is_swipe = _is_swipe(user_list)
 
+        driver.close_app()
         return result
     except:
         print(util.error_msg())

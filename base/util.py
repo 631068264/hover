@@ -8,6 +8,10 @@
 import calendar
 import datetime
 import decimal
+import json
+import re
+import subprocess
+import sys
 import time
 
 from dateutil import tz
@@ -77,3 +81,51 @@ def deal_min_trade(min_trade):
     else:
         point = get_point(min_trade)
         return min_trade + float(point2decfloat(point))
+
+
+def shell_cmd(cmd):
+    return subprocess.check_output(cmd, stderr=sys.stderr, shell=True)
+
+
+def android_activity(json_output=False):
+    def device_name():
+        cmd = 'adb devices -l'
+        r = shell_cmd(cmd).decode()
+        res = re.search(r'model:(.*?) device', r, re.S)
+        if res:
+            return {'deviceName': res.groups()[0]}
+        return None
+
+    def get_package():
+        """get the current activity and packagename"""
+        cmd = 'adb shell dumpsys window windows | grep -E "mCurrentFocus"'
+        r = shell_cmd(cmd).decode()
+
+        res = re.search(r'=Window{(.*?)}', r)
+        if res:
+            try:
+                res = res.groups()[0].split(' ')[-1].split('/')
+                package_name = res[0]
+                activity_name = res[1]
+                if package_name and activity_name:
+                    return {
+                        'appPackage': package_name,
+                        'appActivity': activity_name,
+                    }
+                return None
+            except Exception:
+                return None
+
+    device = device_name()
+    if device is None:
+        raise RuntimeError('No device or adb')
+    tar_package = get_package()
+    # if tar_package is None:
+    #     raise RuntimeError('No current activity')
+    if tar_package:
+        device.update(tar_package)
+        device['platformName'] = 'Android'
+        device['noReset'] = True
+        device['automationName'] = 'uiautomator2'
+        device['newCommandTimeout'] = 0
+        return device if not json_output else json.dumps(device)
