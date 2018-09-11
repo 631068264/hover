@@ -483,6 +483,7 @@ class ABCC(object):
                 # TODO: 块价值 or balance check
                 self.cancel_order_tap()
                 is_ok = self.cancel_all_order()
+                driver.refresh()
                 if is_ok:
                     log.info('CANCEL ALL ORDER')
                     sleep(2)
