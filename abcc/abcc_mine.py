@@ -17,12 +17,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from base import config, logger, util, const
-from base.stash import Stash
 from base.google_auth import android_auth_code
+from base.stash import Stash
 
 conf = config.ABCC
-logger.AutoLog.log_path = 'logs'
 strategy_id = 'abcc_{}'.format(conf.pair.lower())
+logger.AutoLog.log_path = 'logs'
 log = logger.AutoLog.file_log(strategy_id)
 
 

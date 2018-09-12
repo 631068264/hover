@@ -12,7 +12,7 @@ import logging
 import os
 from logging.handlers import RotatingFileHandler
 
-from base import config
+from base import config, util
 
 _log_config = [
     ['', '', 'debug'],
@@ -62,13 +62,14 @@ def get(log_name=''):
 
 class AutoLog(object):
     log_path = None
+    dir = util.project_dir()
 
     @classmethod
     def file_log(cls, log_name, level='debug'):
         formater = MyLoggerFormatter('%(name)-12s %(asctime)s %(levelname)-8s %(message)s',
                                      '%a, %d %b %Y %H:%M:%S', )
         logger = logging.getLogger(log_name)
-        log_path = os.path.join(cls.log_path, log_name + '.log')
+        log_path = os.path.join(cls.dir, cls.log_path, log_name + '.log')
         handler = RotatingFileHandler(log_path, 'a', maxBytes=pow(1024, 3), backupCount=2, encoding='utf-8')
         # if log_path:
         #     pass

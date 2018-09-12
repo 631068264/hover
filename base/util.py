@@ -129,3 +129,9 @@ def android_activity(json_output=False):
         device['automationName'] = 'uiautomator2'
         device['newCommandTimeout'] = 0
         return device if not json_output else json.dumps(device)
+
+
+def project_dir():
+    import os
+    file_path = os.path.abspath(__file__)
+    return os.path.dirname(os.path.dirname(file_path))
