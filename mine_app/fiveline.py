@@ -5,15 +5,22 @@
 @time = 2018/8/5 11:30
 @annotation = ''
 """
+import importme
+
+importme.cli_init()
+
 import json
 import time
 from datetime import datetime
 
 import click
 from appium import webdriver
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+
+from base import util
 
 host = 'localhost'
 port = 4723
@@ -35,7 +42,6 @@ class FIVE_LINE(object):
     def __init__(self):
         self._create_driver()
         self.wait = WebDriverWait(self.driver, 5)
-
         self._get_window_size()
         self.read_logs(ignore=True)
 
@@ -51,6 +57,7 @@ class FIVE_LINE(object):
     #     self.driver.swipe(x, start_y, x, end_y)
     def _create_driver(self):
         self.driver = webdriver.Remote(url, desired_capabilities=desired_caps)
+        print('driver start')
 
     def read_logs(self, log_type='logcat', ignore=False):
         raw_logs = self.driver.get_log(log_type)
@@ -209,6 +216,7 @@ class FIVE_LINE(object):
         self.refresh()
 
     def harvest(self):
+        import re
         wallet = self.wait_view_id('com.kingnet.fiveline:id/flMainWallet')
         wallet.click()
 
@@ -216,8 +224,25 @@ class FIVE_LINE(object):
             '//android.widget.GridView[@resource-id="com.kingnet.fiveline:id/gv_detail_profit"]/android.widget.FrameLayout[1]')
         profit.click()
 
+        flag = False
+
+        while self.swipe_down():
+            views = self.try_views_id('com.kingnet.fiveline:id/tvFunction')
+            if views:
+                break
+
+        for v in views:
+            task_num, max_num = re.search(r'(\d+) / (\d+)', v.text).groups()
+            # flag == True 未完成任务
+            flag |= (task != max_num)
+
         index_view = self.wait_view_id('com.kingnet.fiveline:id/flMainHome')
         index_view.click()
+
+        return flag
+
+    def close(self):
+        self.driver.close_app()
 
     def discover(self, del_mark=False):
 
@@ -226,10 +251,6 @@ class FIVE_LINE(object):
 
         def _back():
             self.driver.find_element_by_accessibility_id('Navigate up').click()
-
-        def _enter():
-            self.wait_view_id('com.kingnet.fiveline:id/flMainFound').click()
-            self.wait_view_id('com.kingnet.fiveline:id/flFindContent').click()
 
         def _next():
             self.wait_view_id('com.kingnet.fiveline:id/mLayoutNext').click()
@@ -257,20 +278,34 @@ class FIVE_LINE(object):
             time.sleep(0.3)
             return self.try_view_id('com.kingnet.fiveline:id/clFinder')
 
+        def _is_finished():
+            vote_num = self.wait_view_id('com.kingnet.fiveline:id/tvVoteValueNum').text
+            vote_max_num = self.wait_view_id('com.kingnet.fiveline:id/tvVoteMax').text
+            return vote_num == vote_max_num
+
         if not del_mark:
-            _enter()
-            for i in range(self.step * 2):
-                if _is_video_type():
-                    _mark()
-                else:
-                    while self.swipe_down():
-                        pass
-                    time.sleep(1)
-                    _vote()
+            try:
+                self.wait_view_id('com.kingnet.fiveline:id/flMainFound').click()
+                if _is_finished():
+                    self.close()
+                    return
+                self.wait_view_id('com.kingnet.fiveline:id/flFindContent').click()
+                for i in range(self.step * 2):
+                    if _is_video_type():
+                        _mark()
+                    else:
+                        while self.swipe_down():
+                            pass
+                        time.sleep(1)
+                        _vote()
 
-                _next()
+                    _next()
 
-            _back()
+                self.close()
+            except WebDriverException:
+                print(util.error_msg())
+                self._create_driver()
+                self.discover(del_mark)
         else:
             self.wait_view_id('com.kingnet.fiveline:id/flMainFound').click()
             flag = True
@@ -283,11 +318,20 @@ class FIVE_LINE(object):
                     flag = False
 
     def task(self):
-        for i in range(self.step):
-            content_view_list = self.wait_views_id('com.kingnet.fiveline:id/lsecTitle')
-            self.do_task(content_view_list[1])
-            self.harvest()
+        try:
+            for i in range(self.step):
+                if not self.harvest():
+                    self.close()
+                    return
+                content_view_list = self.wait_views_id('com.kingnet.fiveline:id/lsecTitle')
+                self.do_task(content_view_list[1])
+
+            self.close()
+
+        except WebDriverException:
+            print(util.error_msg())
             self._create_driver()
+            self.task()
 
     def run(self):
         # self.logcat_output()
