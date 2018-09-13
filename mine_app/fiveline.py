@@ -295,9 +295,9 @@ class FIVE_LINE(object):
                         _mark()
                     else:
                         while self.swipe_down():
-                            pass
-                        time.sleep(1)
-                        _vote()
+                            time.sleep(0.4)
+                            if _vote():
+                                break
 
                     _next()
 
