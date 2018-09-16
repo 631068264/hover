@@ -87,12 +87,14 @@ class FIVE_LINE(object):
         output.setDaemon(True)
         output.start()
 
-    def wait_view_id(self, resource_id):
-        return self.wait.until(
+    def wait_view_id(self, resource_id, wait_sec=None):
+        wait = self.wait if wait_sec is None else WebDriverWait(self.driver, wait_sec)
+        return wait.until(
             EC.presence_of_element_located((By.ID, resource_id)))
 
-    def wait_views_id(self, resource_id):
-        return self.wait.until(
+    def wait_views_id(self, resource_id, wait_sec=None):
+        wait = self.wait if wait_sec is None else WebDriverWait(self.driver, wait_sec)
+        return wait.until(
             EC.presence_of_all_elements_located((By.ID, resource_id)))
 
     def wait_view_xpath(self, xpath):
