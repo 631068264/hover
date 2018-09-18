@@ -5,15 +5,11 @@
 @time = 2018/8/10 11:43
 @annotation = ''
 """
-import datetime
-import time
 
-from base import util
 from base.stash import Stash
 
 with Stash('abcc_eth_btc') as stash:
     print(stash['mode'])
-
 
 # dt = util.ts2dt(time.time())
 # print(dt)
@@ -24,4 +20,3 @@ with Stash('abcc_eth_btc') as stash:
 #
 #
 # print('{:.4f}'.format(util.safe_decimal(12.99)))
-

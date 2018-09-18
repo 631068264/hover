@@ -222,8 +222,10 @@ class FIVE_LINE(object):
         wallet = self.wait_view_id('com.kingnet.fiveline:id/flMainWallet')
         wallet.click()
 
-        profit = self.wait_view_xpath(
-            '//android.widget.GridView[@resource-id="com.kingnet.fiveline:id/gv_detail_profit"]/android.widget.FrameLayout[1]')
+        while self.swipe_up():
+            pass
+
+        profit = self.wait_view_id('com.kingnet.fiveline:id/gv_detail_profit')
         profit.click()
 
         flag = False
