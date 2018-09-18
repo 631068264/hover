@@ -230,13 +230,15 @@ class FIVE_LINE(object):
 
         while self.swipe_down():
             views = self.try_views_id('com.kingnet.fiveline:id/tvFunction')
-            if views:
+            if views and len(views) == 4:
                 break
 
         for v in views:
             task_num, max_num = re.search(r'(\d+) / (\d+)', v.text).groups()
             # flag == True 未完成任务
             flag |= (task != max_num)
+            if flag is True:
+                break
 
         index_view = self.wait_view_id('com.kingnet.fiveline:id/flMainHome')
         index_view.click()
