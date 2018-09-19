@@ -297,11 +297,13 @@ class FIVE_LINE(object):
                     return
                 self.wait_view_id('com.kingnet.fiveline:id/flFindContent').click()
                 for i in range(self.step * 2):
+                    if i > 1 and i % 10 == 0:
+                        raise WebDriverException
                     if _is_video_type():
                         _mark()
                     else:
                         while self.swipe_down():
-                            time.sleep(0.4)
+                            time.sleep(0.6)
                             if _vote():
                                 break
 
