@@ -228,18 +228,17 @@ class FIVE_LINE(object):
         profit = self.wait_view_id('com.kingnet.fiveline:id/gv_detail_profit')
         profit.click()
 
-        flag = False
-
         while self.swipe_down():
             views = self.try_views_id('com.kingnet.fiveline:id/tvFunction')
             if views and len(views) == 4:
                 break
 
+        flag = False
         for v in views:
             task_num, max_num = re.search(r'(\d+) / (\d+)', v.text).groups()
             # flag == True 未完成任务
-            flag |= (task != max_num)
-            if flag is True:
+            flag |= (task_num != max_num)
+            if flag:
                 break
 
         index_view = self.wait_view_id('com.kingnet.fiveline:id/flMainHome')
@@ -333,8 +332,7 @@ class FIVE_LINE(object):
                     return
                 content_view_list = self.wait_views_id('com.kingnet.fiveline:id/lsecTitle')
                 self.do_task(content_view_list[1])
-
-            self.close()
+                raise WebDriverException
 
         except WebDriverException:
             print(util.error_msg())
