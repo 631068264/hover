@@ -5,6 +5,9 @@
 @time = 2018/8/7 14:34
 @annotation = ''
 """
+import importme
+
+importme.cli_init()
 
 import decimal
 import random
