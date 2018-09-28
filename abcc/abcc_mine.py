@@ -380,27 +380,33 @@ class ABCC(object):
         """刷量头寸控制"""
         return self.balance[side] / 2
 
+    def _pre_trade(self):
+        # 限价单
+        limit_order_ele = WebDriverWait(driver, 2).until(
+            EC.presence_of_element_located((By.XPATH, '//div[@class="th5-tasb tab"]/div[1]')))
+        limit_order_ele.click()
+        flag = '限价' in limit_order_ele.find_element_by_tag_name('span').text
+
+        # 隐藏其他不相关交易对
+        hid_pair_ele = driver.find_element_by_xpath(
+            '/html/body/div[2]/div[6]/div[1]/div/div/label/span[1]/span')
+        hid_pair_ele.click()
+
+        hid_pair_ele = driver.find_element_by_xpath(
+            '/html/body/div[2]/div[6]/div[2]/div/div/label/span[1]/span')
+        hid_pair_ele.click()
+        sleep(0.3)
+        return flag
+    def _refresh(self):
+        driver.refresh()
+        self._pre_trade()
+
     def trade(self):
 
         def _pre():
             try:
                 driver.get(conf.tar_url)
-                # 限价单
-                limit_order_ele = WebDriverWait(driver, 2).until(
-                    EC.presence_of_element_located((By.XPATH, '//div[@class="th5-tasb tab"]/div[1]')))
-                limit_order_ele.click()
-                flag1 = '限价' in limit_order_ele.find_element_by_tag_name('span').text
-
-                # 隐藏其他不相关交易对
-                hid_pair_ele = driver.find_element_by_xpath(
-                    '/html/body/div[2]/div[6]/div[1]/div/div/label/span[1]/span')
-                hid_pair_ele.click()
-
-                hid_pair_ele = driver.find_element_by_xpath(
-                    '/html/body/div[2]/div[6]/div[2]/div/div/label/span[1]/span')
-                hid_pair_ele.click()
-                sleep(0.3)
-                return flag1
+                return self._pre_trade()
             except:
                 log.error(util.error_msg())
                 return False
@@ -486,7 +492,7 @@ class ABCC(object):
                 # TODO: 块价值 or balance check
                 self.cancel_order_tap()
                 is_ok = self.cancel_all_order()
-                driver.refresh()
+                self._refresh()
                 if is_ok:
                     log.info('CANCEL ALL ORDER')
                     sleep(2)
