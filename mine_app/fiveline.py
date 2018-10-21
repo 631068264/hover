@@ -155,17 +155,17 @@ class FIVE_LINE(object):
         """分享"""
         share = self.wait_view_id('com.kingnet.fiveline:id/ivShare')
         share.click()
-        wechat = self.wait_view_id('com.kingnet.fiveline:id/llMoreWechat')
+        wechat = self.wait_view_id('com.kingnet.fiveline:id/ivMoreWechat')
         wechat.click()
 
-        share_list = self.wait_views_id('com.tencent.mm:id/lp')
+        share_list = self.wait_views_id('com.tencent.mm:id/om')
         for s in share_list:
             if s.text == '文件传输助手':
                 s.click()
-                wechat_share = self.wait_view_id('com.tencent.mm:id/an3')
+                wechat_share = self.wait_view_id('com.tencent.mm:id/au_')
                 wechat_share.click()
                 time.sleep(0.6)
-                wechat_back = self.wait_view_id('com.tencent.mm:id/an2')
+                wechat_back = self.wait_view_id('com.tencent.mm:id/au9')
                 wechat_back.click()
                 return
 
