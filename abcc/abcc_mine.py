@@ -397,6 +397,7 @@ class ABCC(object):
         hid_pair_ele.click()
         sleep(0.3)
         return flag
+
     def _refresh(self):
         driver.refresh()
         self._pre_trade()
