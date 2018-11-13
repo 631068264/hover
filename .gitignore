@@ -3,3 +3,4 @@
 *.pyc
 .DS_Store
 config_global/my.py
+login.json
